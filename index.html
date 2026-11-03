@@ -573,8 +573,8 @@ function renderCal(){
       const inr=S.cin&&S.cout&&iso>S.cin&&iso<S.cout, sel=isCin||isCout;
       const blockedIn = info==='full' && !(S.cin&&!S.cout&&iso>S.cin);
       const color=info==='full'?'var(--bad-solid)':info==='few'?'var(--warn-solid)':'var(--ok-solid)';
-      const label=`${dm(iso)}${HOL[iso]?`, ${HOL[iso]}`:''}${info==='full'?', lotado':info==='few'?`, últimos ${freeCount(iso)} quartos`:', disponível'}`;
-      cells+=`<button type="button" class="day${inr?' inr':''}${sel?' sel':''}${isCin?' s1':''}${isCout?' s2':''}${iso===TODAY?' today':''}${blockedIn&&!sel?' full':''}" ${out?'disabled':''} data-act="day" data-v="${iso}" aria-label="${label}" aria-pressed="${sel}" ${blockedIn&&!sel?'aria-disabled="true"':''}>
+      const fc=out?0:freeCount(iso); const label=`${dm(iso)}${HOL[iso]?`, ${HOL[iso]}`:''}${info==='full'?', lotado':info==='few'?`, últimos ${fc} quartos`:`, ${fc} de ${CFG.totalQuartos} quartos livres`}`;
+      cells+=`<button type="button" class="day${inr?' inr':''}${sel?' sel':''}${isCin?' s1':''}${isCout?' s2':''}${iso===TODAY?' today':''}${blockedIn&&!sel?' full':''}" ${out?'disabled':''} data-act="day" data-v="${iso}" aria-label="${label}" title="${out?'':(fc+' de '+CFG.totalQuartos+' quartos livres')}" aria-pressed="${sel}" ${blockedIn&&!sel?'aria-disabled="true"':''}>
         <span>${d}</span>${!out&&!sel?`<span class="bar" style="background:${color}"></span>`:'<span class="bar"></span>'}${HOL[iso]&&!out?'<i class="hol"></i>':''}</button>`;
     }
     return `<div class="${idx?'hidden md:block':''}"><div class="text-center font-extrabold mb-2 first-letter:uppercase">${monthName(m)}</div>
@@ -624,7 +624,7 @@ function renderResult(){
   const w=waLink(r);
   const hols=[...new Set(D.nights(r.cin,r.cout).map(n=>HOL[n]).filter(Boolean))];
   const head = r.status==='ok'?{c:'var(--ok-solid)',t:'Temos quartos livres no período',i:'check'}:r.status==='partial'?{c:'var(--warn-solid)',t:'Poucos quartos no período',i:'alert'}:{c:'var(--bad-solid)',t:'Período muito procurado',i:'alert'};
-  const sub = r.status==='ok'?`Há vaga nas ${r.nights} noite${r.nights>1?'s':''} escolhidas.`:r.status==='partial'?'Há quartos livres, mas não o bastante para todo o grupo em todas as noites. A equipe pode sugerir outra combinação.':'Não há quartos livres em parte das noites. Fale com a equipe para entrar na fila de espera ou ajustar as datas.';
+  const sub = r.status==='ok'?`Há vaga nas ${r.nights} noite${r.nights>1?'s':''} escolhidas. Na noite mais cheia do período restam ${r.minFree} de ${CFG.totalQuartos} quartos.`:r.status==='partial'?'Há quartos livres, mas não o bastante para todo o grupo em todas as noites. A equipe pode sugerir outra combinação.':'Não há quartos livres em parte das noites. Fale com a equipe para entrar na fila de espera ou ajustar as datas.';
   const groups={}; (r.plan||[]).forEach(x=>{const k=bedText(x);groups[k]=(groups[k]||0)+1;});
   const stat=(l,v,s)=>`<div><p class="text-xs font-semibold" style="color:var(--mute)">${l}</p><p class="font-bold text-lg tnum">${v}</p>${s?`<p class="text-xs" style="color:var(--mute)">${s}</p>`:''}</div>`;
   el.innerHTML=`<div class="card overflow-hidden grid md:grid-cols-[1.1fr_.9fr]">
