@@ -285,17 +285,22 @@ const Remote = {
   async get(){ const r=await fetch(CFG.planilhaUrl); return r.json(); },
   pw(){ try{return sessionStorage.getItem('novilha.pw')||'';}catch(e){return '';} }
 };
+const PENDING=new Map(), PENDING_DEL=new Set();   // alterações ainda não confirmadas pela planilha: nunca somem da tela
 function applyServer(j,full){
-  DB.bookings=j.bookings||[]; if(full&&j.leads) DB.leads=j.leads; if(full&&j.cancels) DB.cancels=j.cancels;
+  const b=(j.bookings||[]).filter(x=>!PENDING_DEL.has(x.id));
+  PENDING.forEach((v,id)=>{ const i=b.findIndex(x=>x.id===id); if(i>=0) b[i]={...b[i],...v}; else b.push(v); });
+  DB.bookings=b; if(full&&j.leads) DB.leads=j.leads; if(full&&j.cancels) DB.cancels=j.cancels;
   if(j.prices) DB.prices=Object.assign(DB.prices,j.prices);
   save(); if(!modalOpen) refresh();
 }
 async function pullPublic(){ if(!REMOTE) return; try{ const j=await Remote.get(); if(j&&j.ok) applyServer(j,false); }catch(e){} }
-async function pullAdmin(){ if(!REMOTE) return; try{ const j=await Remote.post({action:'list',senha:Remote.pw()}); if(j&&j.ok) applyServer(j,true); }catch(e){ toast('Sem conexão com a planilha.'); } }
-function remoteFail(){ toast('Não foi possível salvar na planilha. Verifique a internet.'); pullAdmin(); }
-function pushBooking(b){ if(!REMOTE) return; const {id,room,start,end,type,guest,phone,adults,kids,note,group}=b; Remote.post({action:'save',senha:Remote.pw(),booking:{id,room,start,end,type,guest,phone,adults,kids,note,group}}).then(r=>{if(!r.ok) throw 0;}).catch(remoteFail); }
-function pushCancel(record,ids){ if(!REMOTE) return; Remote.post({action:'cancel',senha:Remote.pw(),record,ids}).then(r=>{if(!r.ok) throw 0;}).catch(remoteFail); }
-function pushDelete(id){ if(!REMOTE) return; Remote.post({action:'delete',senha:Remote.pw(),id}).then(r=>{if(!r.ok) throw 0;}).catch(remoteFail); }
+async function pullAdmin(){ if(!REMOTE) return; try{ const j=await Remote.post({action:'list',senha:Remote.pw()}); if(j&&j.ok) applyServer(j,true); else if(j&&j.error==='senha'){ try{sessionStorage.removeItem('novilha.auth');sessionStorage.removeItem('novilha.pw');}catch(_){} toast('Sessão expirada. Entre de novo.'); mount(); } }catch(e){ toast('Sem conexão com a planilha.'); } }
+function remoteFail(e){ toast(e&&e.error==='senha'?'A planilha não aceitou a senha. Saia e entre de novo.':e&&e.error?`A planilha recusou os dados (${e.error}).`:'Não foi possível falar com a planilha. Confira a internet. A reserva fica na tela e será reenviada.'); }
+function pushBooking(b){ if(!REMOTE) return; const {id,room,start,end,type,guest,phone,adults,kids,note,group}=b; const rec={id,room,start,end,type,guest,phone,adults,kids,note,group}; PENDING.set(id,rec);
+  Remote.post({action:'save',senha:Remote.pw(),booking:rec}).then(r=>{ if(!r.ok) throw r; PENDING.delete(id); }).catch(remoteFail); }
+function pushCancel(record,ids){ if(!REMOTE) return; ids.forEach(id=>{PENDING.delete(id);PENDING_DEL.add(id);}); Remote.post({action:'cancel',senha:Remote.pw(),record,ids}).then(r=>{if(!r.ok) throw r; ids.forEach(id=>PENDING_DEL.delete(id));}).catch(remoteFail); }
+function pushDelete(id){ if(!REMOTE) return; PENDING.delete(id); PENDING_DEL.add(id); Remote.post({action:'delete',senha:Remote.pw(),id}).then(r=>{ if(!r.ok) throw r; PENDING_DEL.delete(id); }).catch(remoteFail); }
+function retryPending(){ if(!REMOTE||!Remote.pw()) return; PENDING.forEach(rec=>pushBooking(rec)); PENDING_DEL.forEach(id=>pushDelete(id)); }
 
 /* índice de ocupação: noite -> {room: booking} */
 let OCC=null;
@@ -667,7 +672,7 @@ function lbNav(n){ const g=galItems(); lb=(lb+n+g.length)%g.length; const keep=m
    ==================================================================== */
 const A = { tab:'painel', date:TODAY, filter:'todos', mapYm:FIRST_YM, hm:'procura', q:'', tipo:'todos' };
 const TIPOS={livre:'Livre',ocupado:'Ocupado',manutencao:'Manutenção',pre:'Pré-reserva'};
-const authed = ()=>{try{return sessionStorage.getItem('novilha.auth')==='1';}catch(e){return false;}};
+const authed = ()=>{try{return sessionStorage.getItem('novilha.auth')==='1' && (!REMOTE || !!sessionStorage.getItem('novilha.pw'));}catch(e){return false;}};
 function statusOf(room,date){ const b=busyOn(date).get(room); return b?{s:b.type,b}:{s:'livre',b:null}; }
 
 function renderLogin(){
@@ -1014,7 +1019,7 @@ document.addEventListener('input',e=>{ if(e.target.id==='rq'){ A.q=e.target.valu
 load(); lastRoute=route(); mount();
 if(REMOTE){
   pullPublic(); if(route()==='admin'&&authed()) pullAdmin();
-  const tick=()=>{ if(document.visibilityState!=='visible'||modalOpen) return; (route()==='admin'&&authed())?pullAdmin():pullPublic(); };
+  const tick=()=>{ retryPending(); if(document.visibilityState!=='visible'||modalOpen) return; (route()==='admin'&&authed())?pullAdmin():pullPublic(); };
   setInterval(tick,60000); document.addEventListener('visibilitychange',tick);
 }
 })();
