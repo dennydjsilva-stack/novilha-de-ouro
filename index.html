@@ -530,7 +530,7 @@ function renderPublic(){
       <li class="flex items-baseline justify-between gap-4 py-3.5" style="border-bottom:1px solid var(--line)"><span class="font-bold">Pessoa adicional no quarto</span><span class="tnum shrink-0 font-bold">+ ${brl(DB.prices.adicional)} por noite</span></li>
       <li class="flex items-baseline justify-between gap-4 py-3.5" style="border-bottom:1px solid var(--line)"><span class="font-bold">Refeições</span><span class="shrink-0" style="color:var(--mute)">cobradas à parte</span></li>
     </ul>
-    <div class="mt-6 hair pt-5 flex flex-wrap items-center justify-between gap-x-8 gap-y-4">
+    <div class="mt-7 flex flex-wrap items-center justify-between gap-x-8 gap-y-4">
       <p class="max-w-xl" style="line-height:1.55"><b>Cancelamento.</b> <span style="color:var(--mute)">Sem custo com mais de ${CFG.cancelamento.dias} dias de antecedência. Cancelamentos com ${CFG.cancelamento.dias} dias ou menos antes da entrada têm cobrança de ${CFG.cancelamento.pct}% do valor das diárias.</span></p>
       <a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" href="https://wa.me/${CFG.whats}?text=${encodeURIComponent('Olá! Gostaria de cancelar uma reserva na Pousada Novilha de Ouro. Nome: ____  Período: ____')}">${ic('wa','w-4 h-4')} Cancelar uma reserva</a>
     </div>
